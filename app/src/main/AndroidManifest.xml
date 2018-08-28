@@ -28,7 +28,14 @@
                 android:value=".MainActivity" />
         </activity>
         <activity android:name=".SettingsActivity"
-            android:label="Settings" />
+            android:exported="false"
+            android:label="Settings"
+            android:parentActivityName=".MainActivity"/>
+        <provider
+            android:name="com.example.android.popularmovies.data.FavoriteContentProvider"
+            android:authorities="com.example.android.popularmovies.data"
+            android:exported="false" />
+
     </application>
 
 </manifest>

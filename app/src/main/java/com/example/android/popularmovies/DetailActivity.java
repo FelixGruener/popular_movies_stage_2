@@ -1,5 +1,6 @@
 package com.example.android.popularmovies;
 
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
@@ -40,6 +41,13 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+import static com.example.android.popularmovies.data.FavoriteContract.FavoriteEntry.COLUMN_MOVIEID;
+import static com.example.android.popularmovies.data.FavoriteContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS;
+import static com.example.android.popularmovies.data.FavoriteContract.FavoriteEntry.COLUMN_POSTER_PATH;
+import static com.example.android.popularmovies.data.FavoriteContract.FavoriteEntry.COLUMN_TITLE;
+import static com.example.android.popularmovies.data.FavoriteContract.FavoriteEntry.COLUMN_USERRATING;
+import static com.example.android.popularmovies.data.FavoriteContract.FavoriteEntry.CONTENT_URI;
+
 public class DetailActivity extends AppCompatActivity {
 
     TextView nameOfMovie, plotSynopsis, userRating, releaseDate;
@@ -52,6 +60,7 @@ public class DetailActivity extends AppCompatActivity {
     private int movie_id;
     private FavoriteDbHelper favoriteDbHelper;
     private Movie favorite;
+    private Double rate;
     private final AppCompatActivity activity = DetailActivity.this;
     private SQLiteDatabase mDb;
 
@@ -84,6 +93,7 @@ public class DetailActivity extends AppCompatActivity {
             movieName = movie.getOriginalTitle();
             synopsis = movie.getOverview();
             rating = Double.toString(movie.getVoteAverage());
+            rate = movie.getVoteAverage();
             dateOfRelease = movie.getReleaseDate();
             movie_id = movie.getId();
 
@@ -190,14 +200,14 @@ public class DetailActivity extends AppCompatActivity {
 
         String[] projection = {
                 FavoriteContract.FavoriteEntry._ID,
-                FavoriteContract.FavoriteEntry.COLUMN_MOVIEID,
-                FavoriteContract.FavoriteEntry.COLUMN_TITLE,
-                FavoriteContract.FavoriteEntry.COLUMN_USERRATING,
-                FavoriteContract.FavoriteEntry.COLUMN_POSTER_PATH,
-                FavoriteContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS
+                COLUMN_MOVIEID,
+                COLUMN_TITLE,
+                COLUMN_USERRATING,
+                COLUMN_POSTER_PATH,
+                COLUMN_PLOT_SYNOPSIS
 
         };
-        String selection = FavoriteContract.FavoriteEntry.COLUMN_TITLE + " =?";
+        String selection = COLUMN_TITLE + " =?";
         String[] selectionArgs = { searchItem };
         String limit = "1";
 
@@ -333,7 +343,17 @@ public class DetailActivity extends AppCompatActivity {
     }
 
     public void saveFavorite(){
-        favoriteDbHelper = new FavoriteDbHelper(activity);
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_MOVIEID, movie_id);
+        values.put(COLUMN_TITLE, movieName);
+        values.put(COLUMN_USERRATING, rate);
+        values.put(COLUMN_POSTER_PATH, thumbnail);
+        values.put(COLUMN_PLOT_SYNOPSIS, synopsis);
+
+        getContentResolver().insert(CONTENT_URI, values);
+
+        /*favoriteDbHelper = new FavoriteDbHelper(activity);
         favorite = new Movie();
 
         Double rate = movie.getVoteAverage();
@@ -343,6 +363,6 @@ public class DetailActivity extends AppCompatActivity {
         favorite.setVoteAverage(rate);
         favorite.setOverview(synopsis);
 
-        favoriteDbHelper.addFavorite(favorite);
+        favoriteDbHelper.addFavorite(favorite);*/
     }
 }

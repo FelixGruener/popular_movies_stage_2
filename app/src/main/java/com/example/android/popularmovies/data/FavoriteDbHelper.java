@@ -52,8 +52,6 @@ public class FavoriteDbHelper extends SQLiteOpenHelper {
                 "); ";
 
         db.execSQL(SQL_CREATE_FAVORITE_TABLE);
-
-
     }
 
     @Override
@@ -64,7 +62,7 @@ public class FavoriteDbHelper extends SQLiteOpenHelper {
 
     }
 
-    public void addFavorite(Movie movie){
+    /*public void addFavorite(Movie movie){
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
@@ -76,14 +74,14 @@ public class FavoriteDbHelper extends SQLiteOpenHelper {
 
         db.insert(FavoriteContract.FavoriteEntry.TABLE_NAME, null, values);
         db.close();
-    }
+    }*/
 
     public void deleteFavorite(int id){
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(FavoriteContract.FavoriteEntry.TABLE_NAME, FavoriteContract.FavoriteEntry.COLUMN_MOVIEID+ "=" + id, null);
     }
 
-    public List<Movie> getAllFavorite(){
+   /* public List<Movie> getAllFavorite(){
         String[] columns = {
                 FavoriteContract.FavoriteEntry._ID,
                 FavoriteContract.FavoriteEntry.COLUMN_MOVIEID,
@@ -126,6 +124,6 @@ public class FavoriteDbHelper extends SQLiteOpenHelper {
 
         return favoriteList;
     }
-
+*/
 
 }

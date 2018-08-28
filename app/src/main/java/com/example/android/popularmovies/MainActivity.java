@@ -7,8 +7,13 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.database.Cursor;
 import android.os.AsyncTask;
 import android.preference.PreferenceManager;
+import android.provider.BaseColumns;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
+import android.support.v4.app.LoaderManager;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -23,6 +28,7 @@ import android.widget.Toast;
 import com.example.android.popularmovies.adapter.MoviesAdapter;
 import com.example.android.popularmovies.api.Client;
 import com.example.android.popularmovies.api.Service;
+import com.example.android.popularmovies.data.FavoriteContract;
 import com.example.android.popularmovies.data.FavoriteDbHelper;
 import com.example.android.popularmovies.model.Movie;
 import com.example.android.popularmovies.model.MoviesResponse;
@@ -35,16 +41,19 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class MainActivity extends AppCompatActivity implements SharedPreferences.OnSharedPreferenceChangeListener {
+import static com.example.android.popularmovies.data.FavoriteContract.FavoriteEntry.CONTENT_URI;
+
+public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
 
     private RecyclerView recyclerView;
     private MoviesAdapter adapter;
-    private List<Movie> movieList;
+    private List<Movie> movieList = new ArrayList<>();
     ProgressDialog pd;
     private SwipeRefreshLayout swipeContainer;
     private FavoriteDbHelper favoriteDbHelper;
     private AppCompatActivity activity = MainActivity.this;
     public static final String LOG_TAG = MoviesAdapter.class.getName();
+    private static final int FAVORITE_LOADER = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,16 +61,6 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         setContentView(R.layout.activity_main);
 
         initViews();
-
-        /*swipeContainer = (SwipeRefreshLayout) findViewById(R.id.main_content);
-        swipeContainer.setColorSchemeResources(android.R.color.holo_orange_dark);
-        swipeContainer.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener(){
-            @Override
-            public void onRefresh(){
-                initViews();
-                Toast.makeText(MainActivity.this, "Movies Refreshed", Toast.LENGTH_SHORT).show();
-            }
-        });*/
     }
 
     public Activity getActivity(){
@@ -99,32 +98,18 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         swipeContainer.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener(){
             @Override
             public void onRefresh(){
-                initViews();
+                checkSortOrder();
                 Toast.makeText(MainActivity.this, "Movies Refreshed", Toast.LENGTH_SHORT).show();
             }
         });
-
         checkSortOrder();
     }
 
     private void initViews2(){
         recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
-
         movieList = new ArrayList<>();
-        adapter = new MoviesAdapter(this, movieList);
-
-        if (getActivity().getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
-            recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
-        } else {
-            recyclerView.setLayoutManager(new GridLayoutManager(this, 4));
-        }
-
-        recyclerView.setItemAnimator(new DefaultItemAnimator());
-        recyclerView.setAdapter(adapter);
-        adapter.notifyDataSetChanged();
-        favoriteDbHelper = new FavoriteDbHelper(activity);
-
-        getAllFavorite();
+        getSupportLoaderManager().initLoader(FAVORITE_LOADER, null, this);
+        //getAllFavorite();
     }
 
     private void loadJSON(){
@@ -224,12 +209,6 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         }
     }
 
-    @Override
-    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s){
-        Log.d(LOG_TAG, "Preferences updated");
-        checkSortOrder();
-    }
-
     private void checkSortOrder(){
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         String sortOrder = preferences.getString(
@@ -248,6 +227,11 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         }
     }
 
+    @Override
+    public void onStart(){
+        super.onStart();
+        checkSortOrder();
+    }
 
     @Override
     public void onResume(){
@@ -260,7 +244,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
         }
     }
 
-    private void getAllFavorite(){
+   /* private void getAllFavorite(){
         new AsyncTask<Void, Void, Void>(){
             @Override
             protected Void doInBackground(Void... params){
@@ -274,5 +258,62 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 adapter.notifyDataSetChanged();
             }
         }.execute();
+    }
+*/
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        String[] projection = {
+                FavoriteContract.FavoriteEntry._ID,
+                FavoriteContract.FavoriteEntry.COLUMN_MOVIEID,
+                FavoriteContract.FavoriteEntry.COLUMN_TITLE,
+                FavoriteContract.FavoriteEntry.COLUMN_USERRATING,
+                FavoriteContract.FavoriteEntry.COLUMN_POSTER_PATH,
+                FavoriteContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS
+        };
+
+        return new CursorLoader(this,   // Parent activity context
+                CONTENT_URI,   // Provider content URI to query
+                projection,             // Columns to include in the resulting Cursor
+                null,                   // No selection clause
+                null,                   // No selection arguments
+                null);                  // Default sort order
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
+        if (cursor == null || cursor.isClosed()) {
+            return;
+        }else{
+            if (cursor.moveToFirst()) {
+                do {
+                    Movie movie = new Movie();
+                    movie.setId(Integer.parseInt(cursor.getString(cursor.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_MOVIEID))));
+                    movie.setOriginalTitle(cursor.getString(cursor.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_TITLE)));
+                    movie.setVoteAverage(Double.parseDouble(cursor.getString(cursor.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_USERRATING))));
+                    movie.setPosterPath(cursor.getString(cursor.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_POSTER_PATH)));
+                    movie.setOverview(cursor.getString(cursor.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_PLOT_SYNOPSIS)));
+                    movieList.add(movie);
+                } while (cursor.moveToNext());
+            }
+            cursor.close();
+        }
+
+        adapter = new MoviesAdapter(this, movieList);
+
+        if (getActivity().getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
+            recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
+        } else {
+            recyclerView.setLayoutManager(new GridLayoutManager(this, 4));
+        }
+
+        recyclerView.setItemAnimator(new DefaultItemAnimator());
+        recyclerView.setAdapter(adapter);
+        adapter.notifyDataSetChanged();
+        favoriteDbHelper = new FavoriteDbHelper(activity);
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+
     }
 }
