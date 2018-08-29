@@ -122,43 +122,39 @@ public class DetailActivity extends AppCompatActivity {
         if (Exists(movieName)){
             materialFavoriteButton.setFavorite(true);
             materialFavoriteButton.setOnFavoriteChangeListener(
-                    new MaterialFavoriteButton.OnFavoriteChangeListener() {
-                        @Override
-                        public void onFavoriteChanged(MaterialFavoriteButton buttonView, boolean favorite) {
-                            if (favorite == true) {
-                                saveFavorite();
-                                Snackbar.make(buttonView, "Added to Favorite",
-                                        Snackbar.LENGTH_SHORT).show();
-                            } else {
-                                favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
-                                favoriteDbHelper.deleteFavorite(movie_id);
-                                Snackbar.make(buttonView, "Removed from Favorite",
-                                        Snackbar.LENGTH_SHORT).show();
-                            }
+                new MaterialFavoriteButton.OnFavoriteChangeListener() {
+                    @Override
+                    public void onFavoriteChanged(MaterialFavoriteButton buttonView, boolean favorite) {
+                        if (favorite == true) {
+                            saveFavorite();
+                            Snackbar.make(buttonView, "Added to Favorite",
+                                    Snackbar.LENGTH_SHORT).show();
+                        } else {
+                            favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
+                            getContentResolver().delete(CONTENT_URI, String.format("%s = ?", FavoriteContract.FavoriteEntry.COLUMN_MOVIEID), new String[]{String.valueOf(movie_id)});
+                            Snackbar.make(buttonView, "Removed from Favorite",
+                                    Snackbar.LENGTH_SHORT).show();
                         }
-                    });
-
-
+                    }
+                });
         }else {
             materialFavoriteButton.setOnFavoriteChangeListener(
-                    new MaterialFavoriteButton.OnFavoriteChangeListener() {
-                        @Override
-                        public void onFavoriteChanged(MaterialFavoriteButton buttonView, boolean favorite) {
-                            if (favorite == true) {
-                                saveFavorite();
-                                Snackbar.make(buttonView, "Added to Favorite",
-                                        Snackbar.LENGTH_SHORT).show();
-                            } else {
-                                int movie_id = getIntent().getExtras().getInt("id");
-                                favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
-                                favoriteDbHelper.deleteFavorite(movie_id);
-                                Snackbar.make(buttonView, "Removed from Favorite",
-                                        Snackbar.LENGTH_SHORT).show();
-                            }
+                new MaterialFavoriteButton.OnFavoriteChangeListener() {
+                    @Override
+                    public void onFavoriteChanged(MaterialFavoriteButton buttonView, boolean favorite) {
+                        if (favorite == true) {
+                            saveFavorite();
+                            Snackbar.make(buttonView, "Added to Favorite",
+                                    Snackbar.LENGTH_SHORT).show();
+                        } else {
+                            int movie_id = getIntent().getExtras().getInt("id");
+                            favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
+                            favoriteDbHelper.deleteFavorite(movie_id);
+                            Snackbar.make(buttonView, "Removed from Favorite",
+                                    Snackbar.LENGTH_SHORT).show();
                         }
-                    });
-
-
+                    }
+                });
         }
 
         /*MaterialFavoriteButton materialFavoriteButtonNice =

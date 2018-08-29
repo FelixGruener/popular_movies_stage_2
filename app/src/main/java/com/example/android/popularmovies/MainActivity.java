@@ -239,7 +239,6 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         if (movieList.isEmpty()){
             checkSortOrder();
         }else{
-
             checkSortOrder();
         }
     }

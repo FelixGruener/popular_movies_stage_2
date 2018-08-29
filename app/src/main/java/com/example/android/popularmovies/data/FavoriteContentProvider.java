@@ -111,7 +111,29 @@ public class FavoriteContentProvider extends ContentProvider {
 
     @Override
     public int delete(@NonNull Uri uri, @Nullable String selection, @Nullable String[] selectionArgs) {
-        return 0;
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+
+        int rowsDeleted;
+
+        final int match = sUriMatcher.match(uri);
+        switch (match) {
+            case FAVORITE:
+                //Rows aren't counted with null selection
+                rowsDeleted = database.delete(FavoriteContract.FavoriteEntry.TABLE_NAME, selection, selectionArgs);
+                break;
+
+            case FAVORITE_ID:
+                rowsDeleted = database.delete(FavoriteContract.FavoriteEntry.TABLE_NAME, selection, selectionArgs);
+                break;
+            default:
+                throw new IllegalArgumentException("Illegal delete URI");
+        }
+
+        if (rowsDeleted != 0) {
+            getContext().getContentResolver().notifyChange(uri, null);
+        }
+
+        return rowsDeleted;
     }
 
     @Override
