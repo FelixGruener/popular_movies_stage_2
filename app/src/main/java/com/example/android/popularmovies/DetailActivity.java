@@ -58,11 +58,11 @@ public class DetailActivity extends AppCompatActivity {
     private String thumbnail, movieName, synopsis, rating, dateOfRelease;
     private Movie movie;
     private int movie_id;
-    private FavoriteDbHelper favoriteDbHelper;
+    //private FavoriteDbHelper favoriteDbHelper;
     private Movie favorite;
     private Double rate;
     private final AppCompatActivity activity = DetailActivity.this;
-    private SQLiteDatabase mDb;
+    //private SQLiteDatabase mDb;
 
     @Override
     public void onCreate(Bundle savedInstanceState){
@@ -80,9 +80,8 @@ public class DetailActivity extends AppCompatActivity {
         releaseDate = (TextView) findViewById(R.id.releasedate);
 
         //TODO
-        FavoriteDbHelper dbHelper = new FavoriteDbHelper(this);
-        mDb = dbHelper.getWritableDatabase();
-
+        //FavoriteDbHelper dbHelper = new FavoriteDbHelper(this);
+        //mDb = dbHelper.getWritableDatabase();
 
         Intent intentThatStartedThisActivity = getIntent();
         if (intentThatStartedThisActivity.hasExtra("movies")){
@@ -130,7 +129,7 @@ public class DetailActivity extends AppCompatActivity {
                             Snackbar.make(buttonView, "Added to Favorite",
                                     Snackbar.LENGTH_SHORT).show();
                         } else {
-                            favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
+                            //favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
                             getContentResolver().delete(CONTENT_URI, String.format("%s = ?", FavoriteContract.FavoriteEntry.COLUMN_MOVIEID), new String[]{String.valueOf(movie_id)});
                             Snackbar.make(buttonView, "Removed from Favorite",
                                     Snackbar.LENGTH_SHORT).show();
@@ -148,8 +147,9 @@ public class DetailActivity extends AppCompatActivity {
                                     Snackbar.LENGTH_SHORT).show();
                         } else {
                             int movie_id = getIntent().getExtras().getInt("id");
-                            favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
-                            favoriteDbHelper.deleteFavorite(movie_id);
+                            //favoriteDbHelper = new FavoriteDbHelper(DetailActivity.this);
+                            //favoriteDbHelper.deleteFavorite(movie_id);
+                            getContentResolver().delete(CONTENT_URI, String.format("%s = ?", FavoriteContract.FavoriteEntry.COLUMN_MOVIEID), new String[]{String.valueOf(movie_id)});
                             Snackbar.make(buttonView, "Removed from Favorite",
                                     Snackbar.LENGTH_SHORT).show();
                         }
@@ -207,7 +207,8 @@ public class DetailActivity extends AppCompatActivity {
         String[] selectionArgs = { searchItem };
         String limit = "1";
 
-        Cursor cursor = mDb.query(FavoriteContract.FavoriteEntry.TABLE_NAME, projection, selection, selectionArgs, null, null, null, limit);
+        Cursor cursor = getContentResolver().query(CONTENT_URI, projection, selection, selectionArgs, null);
+        //Cursor cursor = mDb.query(FavoriteContract.FavoriteEntry.TABLE_NAME, projection, selection, selectionArgs, null, null, null, limit);
         boolean exists = (cursor.getCount() > 0);
         cursor.close();
         return exists;

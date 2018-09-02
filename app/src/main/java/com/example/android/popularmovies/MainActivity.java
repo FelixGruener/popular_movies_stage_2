@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.os.AsyncTask;
+import android.os.Parcelable;
 import android.preference.PreferenceManager;
 import android.provider.BaseColumns;
 import android.support.v4.content.CursorLoader;
@@ -47,20 +48,29 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
     private RecyclerView recyclerView;
     private MoviesAdapter adapter;
-    private List<Movie> movieList = new ArrayList<>();
-    ProgressDialog pd;
-    private SwipeRefreshLayout swipeContainer;
+    private List<Movie> movieList;
+    private ArrayList<Movie> moviesInstance = new ArrayList<>();
+    private ProgressDialog pd;
     private FavoriteDbHelper favoriteDbHelper;
     private AppCompatActivity activity = MainActivity.this;
     public static final String LOG_TAG = MoviesAdapter.class.getName();
     private static final int FAVORITE_LOADER = 0;
+    private static String LIST_STATE = "list_state";
+    private Parcelable savedRecyclerLayoutState;
+    private static final String BUNDLE_RECYCLER_LAYOUT = "recycler_layout";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        initViews();
+        if (savedInstanceState != null){
+            moviesInstance = savedInstanceState.getParcelableArrayList(LIST_STATE);
+            savedRecyclerLayoutState = savedInstanceState.getParcelable(BUNDLE_RECYCLER_LAYOUT);
+            displayData();
+        }else {
+            initViews();
+        }
     }
 
     public Activity getActivity(){
@@ -74,13 +84,28 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         return null;
     }
 
+    private void displayData(){
+        recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+        adapter = new MoviesAdapter(this, moviesInstance);
+        if (getActivity().getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
+            recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
+        } else {
+            recyclerView.setLayoutManager(new GridLayoutManager(this, 4));
+        }
+        recyclerView.setItemAnimator(new DefaultItemAnimator());
+        recyclerView.setAdapter(adapter);
+        restoreLayoutManagerPosition();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void restoreLayoutManagerPosition() {
+        if (savedRecyclerLayoutState != null) {
+            recyclerView.getLayoutManager().onRestoreInstanceState(savedRecyclerLayoutState);
+        }
+    }
 
     private void initViews(){
-
         recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
-
-        movieList = new ArrayList<>();
-        adapter = new MoviesAdapter(this, movieList);
         if (getActivity().getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
             recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
         } else {
@@ -89,105 +114,107 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
         recyclerView.setItemAnimator(new DefaultItemAnimator());
         recyclerView.setAdapter(adapter);
-        adapter.notifyDataSetChanged();
-        favoriteDbHelper = new FavoriteDbHelper(activity);
-
-
-        swipeContainer = (SwipeRefreshLayout) findViewById(R.id.main_content);
-        swipeContainer.setColorSchemeResources(android.R.color.holo_orange_dark);
-        swipeContainer.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener(){
-            @Override
-            public void onRefresh(){
-                checkSortOrder();
-                Toast.makeText(MainActivity.this, "Movies Refreshed", Toast.LENGTH_SHORT).show();
-            }
-        });
-        checkSortOrder();
+        loadJSON();
     }
 
     private void initViews2(){
         recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
         movieList = new ArrayList<>();
         getSupportLoaderManager().initLoader(FAVORITE_LOADER, null, this);
-        //getAllFavorite();
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+        super.onSaveInstanceState(savedInstanceState);
+        savedInstanceState.putParcelableArrayList(LIST_STATE, moviesInstance);
+        savedInstanceState.putParcelable(BUNDLE_RECYCLER_LAYOUT, recyclerView.getLayoutManager().onSaveInstanceState());
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        moviesInstance = savedInstanceState.getParcelableArrayList(LIST_STATE);
+        savedRecyclerLayoutState = savedInstanceState.getParcelable(BUNDLE_RECYCLER_LAYOUT);
+        super.onRestoreInstanceState(savedInstanceState);
     }
 
     private void loadJSON(){
+        String sortOrder = checkSortOrder();
 
-        try{
-            if (BuildConfig.THE_MOVIE_DB_API_TOKEN.isEmpty()){
-                Toast.makeText(getApplicationContext(), "Please obtain API Key firstly from themoviedb.org", Toast.LENGTH_SHORT).show();
-                pd.dismiss();
-                return;
-            }
+        if (sortOrder.equals(this.getString(R.string.pref_most_popular))) {
 
-            Client Client = new Client();
-            Service apiService =
-                    Client.getClient().create(Service.class);
-            Call<MoviesResponse> call = apiService.getPopularMovies(BuildConfig.THE_MOVIE_DB_API_TOKEN);
-            call.enqueue(new Callback<MoviesResponse>() {
-                @Override
-                public void onResponse(Call<MoviesResponse> call, Response<MoviesResponse> response) {
-                    if (response.isSuccessful()){
-                        if (response.body() != null){
-                            List<Movie> movies = response.body().getResults();
-                            recyclerView.setAdapter(new MoviesAdapter(getApplicationContext(), movies));
-                            recyclerView.smoothScrollToPosition(0);
-                            if (swipeContainer.isRefreshing()){
-                                swipeContainer.setRefreshing(false);
+            try {
+                if (BuildConfig.THE_MOVIE_DB_API_TOKEN.isEmpty()) {
+                    Toast.makeText(getApplicationContext(), "Please obtain API Key firstly from themoviedb.org", Toast.LENGTH_SHORT).show();
+                    pd.dismiss();
+                    return;
+                }
+
+                Client Client = new Client();
+                Service apiService =
+                        Client.getClient().create(Service.class);
+                Call<MoviesResponse> call = apiService.getPopularMovies(BuildConfig.THE_MOVIE_DB_API_TOKEN);
+                call.enqueue(new Callback<MoviesResponse>() {
+                    @Override
+                    public void onResponse(Call<MoviesResponse> call, Response<MoviesResponse> response) {
+                        if (response.isSuccessful()) {Toast.makeText(MainActivity.this, "the value is " + moviesInstance.size(), Toast.LENGTH_SHORT).show();
+
+                            if (response.body() != null) {
+                                List<Movie> movies = response.body().getResults();
+                                //moviesInstance.clear();
+                                moviesInstance.addAll(movies);
+                                recyclerView.setAdapter(new MoviesAdapter(getApplicationContext(), movies));
+                                recyclerView.smoothScrollToPosition(0);
                             }
                         }
                     }
-                }
 
-                @Override
-                public void onFailure(Call<MoviesResponse> call, Throwable t) {
-                    Log.d("Error", t.getMessage());
-                    Toast.makeText(MainActivity.this, "Error Fetching Data!", Toast.LENGTH_SHORT).show();
+                    @Override
+                    public void onFailure(Call<MoviesResponse> call, Throwable t) {
+                        Log.d("Error", t.getMessage());
+                        Toast.makeText(MainActivity.this, "Error Fetching Data!", Toast.LENGTH_SHORT).show();
 
-                }
-            });
-        }catch (Exception e){
-            Log.d("Error", e.getMessage());
-            Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void loadJSON1(){
-
-        try{
-            if (BuildConfig.THE_MOVIE_DB_API_TOKEN.isEmpty()){
-                Toast.makeText(getApplicationContext(), "Please obtain API Key firstly from themoviedb.org", Toast.LENGTH_SHORT).show();
-                pd.dismiss();
-                return;
+                    }
+                });
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+                Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT).show();
             }
+        }else if (sortOrder.equals(this.getString(R.string.favorite))){
+            initViews2();
+        }else {
 
-            Client Client = new Client();
-            Service apiService =
-                    Client.getClient().create(Service.class);
-            Call<MoviesResponse> call = apiService.getTopRatedMovies(BuildConfig.THE_MOVIE_DB_API_TOKEN);
-            call.enqueue(new Callback<MoviesResponse>() {
-                @Override
-                public void onResponse(Call<MoviesResponse> call, Response<MoviesResponse> response) {
-                    List<Movie> movies = response.body().getResults();
-                    recyclerView.setAdapter(new MoviesAdapter(getApplicationContext(), movies));
-                    recyclerView.smoothScrollToPosition(0);
-                    if (swipeContainer.isRefreshing()){
-                        swipeContainer.setRefreshing(false);
+            try {
+                if (BuildConfig.THE_MOVIE_DB_API_TOKEN.isEmpty()) {
+                    Toast.makeText(getApplicationContext(), "Please obtain API Key firstly from themoviedb.org", Toast.LENGTH_SHORT).show();
+                    pd.dismiss();
+                    return;
+                }
+
+                Client Client = new Client();
+                Service apiService =
+                        Client.getClient().create(Service.class);
+                Call<MoviesResponse> call = apiService.getTopRatedMovies(BuildConfig.THE_MOVIE_DB_API_TOKEN);
+                call.enqueue(new Callback<MoviesResponse>() {
+                    @Override
+                    public void onResponse(Call<MoviesResponse> call, Response<MoviesResponse> response) {
+                        List<Movie> movies = response.body().getResults();
+                        //moviesInstance.clear();
+                        moviesInstance.addAll(movies);
+                        recyclerView.setAdapter(new MoviesAdapter(getApplicationContext(), movies));
+                        recyclerView.smoothScrollToPosition(0);
                     }
 
-                }
+                    @Override
+                    public void onFailure(Call<MoviesResponse> call, Throwable t) {
+                        Log.d("Error", t.getMessage());
+                        Toast.makeText(MainActivity.this, "Error Fetching Data!", Toast.LENGTH_SHORT).show();
 
-                @Override
-                public void onFailure(Call<MoviesResponse> call, Throwable t) {
-                    Log.d("Error", t.getMessage());
-                    Toast.makeText(MainActivity.this, "Error Fetching Data!", Toast.LENGTH_SHORT).show();
-
-                }
-            });
-        }catch (Exception e){
-            Log.d("Error", e.getMessage());
-            Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } catch (Exception e) {
+                Log.d("Error", e.getMessage());
+                Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -209,56 +236,16 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         }
     }
 
-    private void checkSortOrder(){
+    private String checkSortOrder(){
         SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         String sortOrder = preferences.getString(
                 this.getString(R.string.pref_sort_order_key),
                 this.getString(R.string.pref_most_popular)
         );
-        if (sortOrder.equals(this.getString(R.string.pref_most_popular))) {
-            Log.d(LOG_TAG, "Sorting by most popular");
-            loadJSON();
-        } else if (sortOrder.equals(this.getString(R.string.favorite))){
-            Log.d(LOG_TAG, "Sorting by favorite");
-            initViews2();
-        } else{
-            Log.d(LOG_TAG, "Sorting by vote average");
-            loadJSON1();
-        }
+
+        return sortOrder;
     }
 
-    @Override
-    public void onStart(){
-        super.onStart();
-        checkSortOrder();
-    }
-
-    @Override
-    public void onResume(){
-        super.onResume();
-        if (movieList.isEmpty()){
-            checkSortOrder();
-        }else{
-            checkSortOrder();
-        }
-    }
-
-   /* private void getAllFavorite(){
-        new AsyncTask<Void, Void, Void>(){
-            @Override
-            protected Void doInBackground(Void... params){
-                movieList.clear();
-                movieList.addAll(favoriteDbHelper.getAllFavorite());
-                return null;
-            }
-            @Override
-            protected void onPostExecute(Void aVoid){
-                super.onPostExecute(aVoid);
-                adapter.notifyDataSetChanged();
-            }
-        }.execute();
-    }
-*/
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
         String[] projection = {
@@ -298,6 +285,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         }
 
         adapter = new MoviesAdapter(this, movieList);
+       // moviesInstance.clear();
+        moviesInstance.addAll(movieList);
 
         if (getActivity().getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT){
             recyclerView.setLayoutManager(new GridLayoutManager(this, 2));
@@ -313,6 +302,5 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
     @Override
     public void onLoaderReset(Loader<Cursor> loader) {
-
     }
 }
